@@ -1,4 +1,6 @@
-const API_URL = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost' ? 'http://127.0.0.1:5000/api' : 'https://research-ot.onrender.com/api';
+const API_URL = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost' 
+    ? 'http://127.0.0.1:5000/api' 
+    : window.location.hostname.includes('vercel.app') ? '/api' : 'https://research-ot.onrender.com/api';
 
 // Utility: Get Token
 function getToken() {
