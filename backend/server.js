@@ -47,3 +47,5 @@ app.use((err, req, res, next) => {
     console.error('Global Error Handler:', err);
     res.status(500).json({ msg: 'Server error', error: err.message });
 });
+
+module.exports = app;
