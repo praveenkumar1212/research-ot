@@ -10,6 +10,9 @@ const ResearchSchema = new mongoose.Schema({
         default: 'Pending'
     },
     progress: { type: [String], default: [] },
+    proofFileName: { type: String, default: null },
+    proofData: { type: String, default: null },
+    mentorApproved: { type: Boolean, default: false },
     publishedDate: { type: Date },
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     createdAt: { type: Date, default: Date.now }

@@ -235,7 +235,7 @@
                 </div>
             </div>
             <form id="progress-form">
-                <div style="display: flex; flex-direction: column; gap: 0.8rem; margin-bottom: 2rem;">
+                <div style="display: flex; flex-direction: column; gap: 0.8rem; margin-bottom: 1.5rem;">
                     <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; color: #fff;">
                         <input type="checkbox" name="progress-step" value="Problem Statement"> Problem Statement
                     </label>
@@ -258,6 +258,13 @@
                         <input type="checkbox" name="progress-step" value="Conclusion"> Conclusion
                     </label>
                 </div>
+                
+                <div id="proof-container" style="display: none; margin-bottom: 2rem; padding: 1rem; background: rgba(255,255,255,0.05); border-radius: 8px; border: 1px dashed var(--primary);">
+                    <label style="display: block; color: var(--primary); margin-bottom: 0.5rem; font-size: 0.9rem; font-weight: 500;">Upload Proof of Progress</label>
+                    <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.8rem;">Please attach a PDF or image supporting your checked progress.</p>
+                    <input type="file" id="progress-proof" name="proof" accept=".pdf,image/*" style="width: 100%; padding: 0.5rem; border-radius: 4px; background: rgba(0,0,0,0.2); color: #fff; border: 1px solid rgba(255,255,255,0.1); font-size: 0.85rem;" required>
+                </div>
+
                 <div class="modal-actions">
                     <button type="button" class="btn btn-secondary" id="progress-cancel">Cancel</button>
                     <button type="submit" class="btn" id="progress-save">Save Progress</button>

@@ -22,6 +22,29 @@ router.get('/', auth, async (req, res) => {
     }
 });
 
+// @route   GET api/research/all
+// @desc    Get all research across all users (Admin & Mentor only)
+router.get('/all', auth, async (req, res) => {
+    try {
+        if (req.user.role !== 'Admin' && req.user.role !== 'Mentor') {
+            return res.status(403).json({ msg: 'Access denied. Admins and Mentors only.' });
+        }
+        
+        let query = {};
+        if (req.query.status) {
+            query.status = req.query.status;
+        }
+        
+        const research = await Research.find(query)
+            .populate('userId', 'name email role')
+            .sort({ createdAt: -1 });
+            
+        res.json(research);
+    } catch (err) {
+        res.status(500).json({ msg: 'Server error', error: err.message });
+    }
+});
+
 // @route   POST api/research
 // @desc    Add new research
 router.post('/', auth, async (req, res) => {
@@ -46,9 +69,31 @@ router.put('/:id/publish', auth, async (req, res) => {
         if (research.userId.toString() !== req.user.id) {
             return res.status(401).json({ msg: 'User not authorized' });
         }
+        if (!research.mentorApproved) {
+            return res.status(400).json({ msg: 'Cannot publish before Mentor verification.' });
+        }
 
         research.status = 'Published';
         research.publishedDate = Date.now();
+        await research.save();
+        res.json(research);
+    } catch (err) {
+        res.status(500).json({ msg: 'Server error', error: err.message });
+    }
+});
+
+// @route   PUT api/research/:id/approve
+// @desc    Approve research (Mentor only)
+router.put('/:id/approve', auth, async (req, res) => {
+    try {
+        if (req.user.role !== 'Mentor') {
+            return res.status(403).json({ msg: 'Access denied. Mentors only.' });
+        }
+
+        let research = await Research.findById(req.params.id);
+        if (!research) return res.status(404).json({ msg: 'Research not found' });
+
+        research.mentorApproved = true;
         await research.save();
         res.json(research);
     } catch (err) {
@@ -60,7 +105,7 @@ router.put('/:id/publish', auth, async (req, res) => {
 // @desc    Update progress array for a research project
 router.patch('/:id/progress', auth, async (req, res) => {
     try {
-        const { progress } = req.body;
+        const { progress, proofFileName, proofData } = req.body;
         let research = await Research.findById(req.params.id);
         if (!research) return res.status(404).json({ msg: 'Research not found' });
         if (research.userId.toString() !== req.user.id) {
@@ -68,6 +113,8 @@ router.patch('/:id/progress', auth, async (req, res) => {
         }
 
         research.progress = progress;
+        if (proofFileName) research.proofFileName = proofFileName;
+        if (proofData) research.proofData = proofData;
         // Auto-complete if 7 steps are checked
         if (progress && progress.length === 7) {
             research.status = 'Completed';
@@ -95,8 +142,12 @@ router.delete('/:id', auth, async (req, res) => {
 
         if (!research) return res.status(404).json({ msg: 'Research not found' });
 
-        console.log(`Research UserID: ${research.userId}, Request UserID: ${req.user.id}`);
-        if (research.userId.toString() !== req.user.id) {
+        console.log(`Research UserID: ${research.userId}, Request UserID: ${req.user.id}, Role: ${req.user.role}`);
+        
+        const isOwner = research.userId.toString() === req.user.id;
+        const isAdminOrMentor = req.user.role === 'Admin' || req.user.role === 'Mentor';
+
+        if (!isOwner && !isAdminOrMentor) {
             console.log('User not authorized to delete this research');
             return res.status(401).json({ msg: 'User not authorized' });
         }

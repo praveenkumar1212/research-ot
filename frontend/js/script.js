@@ -68,7 +68,11 @@ async function loadResearch() {
                             data-name="${r.title.replace(/"/g, '&quot;')}"
                             data-progress='${JSON.stringify(r.progress || [])}'>Update</button>`;
                     } else if (r.status === 'Completed') {
-                        publishBtnHtml = `<button class="btn btn-secondary publish-btn" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; width: auto; white-space: nowrap;" data-id="${r._id}" data-name="${r.title.replace(/"/g, '&quot;')}">Publish</button>`;
+                        if (r.mentorApproved) {
+                            publishBtnHtml = `<button class="btn btn-secondary publish-btn" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; width: auto; white-space: nowrap;" data-id="${r._id}" data-name="${r.title.replace(/"/g, '&quot;')}">Publish</button>`;
+                        } else {
+                            publishBtnHtml = `<span class="badge status-pending" style="font-size: 0.75rem;">Pending Mentor Approval</span>`;
+                        }
                     }
                 }
 
@@ -206,6 +210,143 @@ async function loadReports() {
     }
 }
 
+async function loadAllResearch() {
+    const tableBody = document.querySelector("#admin-research-table tbody") || document.querySelector("#mentor-research-table tbody");
+    if (!tableBody) return;
+
+    try {
+        const res = await fetch(`${API_URL}/research/all`, {
+            headers: { 'x-auth-token': getToken() }
+        });
+        const items = await res.json();
+
+        tableBody.innerHTML = "";
+        let total = items.length;
+        let published = 0;
+        let ongoing = 0;
+        
+        let pendingLabels = [];
+        let pendingData = [];
+
+        items.forEach(r => {
+            if (r.status === 'Published') published++;
+            if (r.status === 'Ongoing') ongoing++;
+            
+            
+            const tr = document.createElement("tr");
+            
+            // Handle populated userId safely in case user was deleted
+            const researcherName = r.userId ? r.userId.name : 'Unknown User';
+            const researcherEmail = r.userId ? r.userId.email : 'N/A';
+            
+            let progressHtml = '';
+            if (r.status === 'Pending' || r.status === 'Completed') {
+                const progressCount = r.progress ? r.progress.length : 0;
+                const progressPercent = r.status === 'Completed' ? 100 : Math.round((progressCount / 7) * 100);
+                
+                if (r.status === 'Pending') {
+                    pendingLabels.push(`${researcherName} - ${r.title}`);
+                    pendingData.push(progressPercent);
+                }
+                
+                progressHtml = `
+                    <div class="progress-container" style="margin-top: 0.5rem;">
+                        <div class="progress-bar-fill" style="width: ${progressPercent}%; ${r.status === 'Completed' ? 'background: var(--success);' : ''}"></div>
+                    </div>
+                    <div style="font-size: 0.7rem; color: var(--text-muted); text-align: right; margin-top: 2px;">${progressPercent}%</div>
+                `;
+            }
+
+            let actionsHtml = `<button class="btn btn-danger delete-btn" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; background: #ff4d4d; border-color: #ff4d4d; width: auto; white-space: nowrap;" data-id="${r._id}" data-name="${r.title.replace(/"/g, '&quot;')}">Delete</button>`;
+            
+            if (window.location.pathname.includes('mentor-dashboard.html')) {
+                if (r.proofData) {
+                    actionsHtml = `<button class="btn btn-secondary view-doc-btn" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; width: auto; white-space: nowrap;" data-file="${r.proofFileName || 'Document'}" data-doc="${r.proofData}">View Document</button> ` + actionsHtml;
+                }
+                
+                if (r.status === 'Completed' && !r.mentorApproved) {
+                    actionsHtml = `<button class="btn btn-success approve-btn" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; background: var(--success); border-color: var(--success); width: auto; white-space: nowrap;" data-id="${r._id}" data-name="${r.title.replace(/"/g, '&quot;')}">Approve</button> ` + actionsHtml;
+                } else if (r.mentorApproved && r.status === 'Completed') {
+                    actionsHtml = `<span class="badge status-success" style="font-size: 0.75rem;">Approved</span> ` + actionsHtml;
+                }
+            }
+            
+            tr.innerHTML = `
+                <td style="font-weight: 500;">
+                    <div>${researcherName}</div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted);">${researcherEmail}</div>
+                </td>
+                <td style="font-weight: 500;">${r.title}</td>
+                <td style="color: var(--text-muted);">${r.description.substring(0, 50)}...</td>
+                <td>${new Date(r.startDate).toLocaleDateString()}</td>
+                <td>
+                    <span class="${statusClass(r.status)}">${r.status}</span>
+                    ${progressHtml}
+                </td>
+                <td>
+                    <div style="display: flex; gap: 0.5rem; justify-content: flex-start; align-items: center;">
+                        ${actionsHtml}
+                    </div>
+                </td>
+            `;
+            tableBody.appendChild(tr);
+        });
+
+        // Summary stats
+        if (document.getElementById("admin-total-projects")) document.getElementById("admin-total-projects").textContent = total;
+        if (document.getElementById("admin-ongoing-projects")) document.getElementById("admin-ongoing-projects").textContent = ongoing;
+        if (document.getElementById("admin-published-projects")) document.getElementById("admin-published-projects").textContent = published;
+
+        // Render Progress Chart
+        const chartContainer = document.getElementById('progress-chart-container');
+        if (chartContainer) {
+            if (pendingLabels.length > 0) {
+                chartContainer.style.display = 'block';
+                const ctx = document.getElementById('progressChart').getContext('2d');
+                if (window.progressChartInstance) {
+                    window.progressChartInstance.destroy();
+                }
+                window.progressChartInstance = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: pendingLabels,
+                        datasets: [{
+                            label: 'Progress %',
+                            data: pendingData,
+                            backgroundColor: 'hsl(190, 100%, 60%)',
+                            borderRadius: 6,
+                            maxBarThickness: 50
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 100,
+                                ticks: { color: '#888' },
+                                grid: { color: 'rgba(255, 255, 255, 0.05)' }
+                            },
+                            x: {
+                                ticks: { color: '#888' },
+                                grid: { display: false }
+                            }
+                        },
+                        plugins: {
+                            legend: { display: false }
+                        }
+                    }
+                });
+            } else {
+                chartContainer.style.display = 'none';
+            }
+        }
+    } catch (err) {
+        console.error('Error loading all research:', err);
+    }
+}
+
 
 
 // --- Main Initialization ---
@@ -228,6 +369,41 @@ document.addEventListener('DOMContentLoaded', () => {
     // 3. Login Form
     const loginForm = document.getElementById("login-form");
     if (loginForm) {
+        let loginRole = 'User'; // default
+        
+        const tabStudent = document.getElementById('tab-student');
+        const tabMentor = document.getElementById('tab-mentor');
+        const tabAdmin = document.getElementById('tab-admin');
+        
+        const resetTabs = () => {
+            if(tabStudent) { tabStudent.style.background = 'transparent'; tabStudent.style.color = 'var(--primary)'; }
+            if(tabMentor) { tabMentor.style.background = 'transparent'; tabMentor.style.color = 'var(--primary)'; }
+            if(tabAdmin) { tabAdmin.style.background = 'transparent'; tabAdmin.style.color = 'var(--primary)'; }
+        };
+
+        if (tabStudent && tabAdmin) {
+            tabStudent.addEventListener('click', () => {
+                loginRole = 'User';
+                resetTabs();
+                tabStudent.style.background = 'var(--primary)';
+                tabStudent.style.color = 'white';
+            });
+            if(tabMentor) {
+                tabMentor.addEventListener('click', () => {
+                    loginRole = 'Mentor';
+                    resetTabs();
+                    tabMentor.style.background = 'var(--primary)';
+                    tabMentor.style.color = 'white';
+                });
+            }
+            tabAdmin.addEventListener('click', () => {
+                loginRole = 'Admin';
+                resetTabs();
+                tabAdmin.style.background = 'var(--primary)';
+                tabAdmin.style.color = 'white';
+            });
+        }
+
         loginForm.addEventListener("submit", async (e) => {
             e.preventDefault();
             const email = document.getElementById("login-email").value.toLowerCase().trim();
@@ -241,9 +417,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 const data = await res.json();
                 if (res.ok) {
+                    if (loginRole === 'Admin' && data.user.role !== 'Admin') {
+                        alert("You are not authorized as an Admin.");
+                        return;
+                    }
+                    if (loginRole === 'Mentor' && data.user.role !== 'Mentor') {
+                        alert("You are not authorized as a Mentor.");
+                        return;
+                    }
+                    
                     localStorage.setItem('token', data.token);
                     localStorage.setItem('user', JSON.stringify(data.user));
-                    window.location.href = "dashboard.html";
+                    
+                    if (data.user.role === 'Admin') {
+                        window.location.href = "admin-dashboard.html";
+                    } else if (data.user.role === 'Mentor') {
+                        window.location.href = "mentor-dashboard.html";
+                    } else {
+                        window.location.href = "dashboard.html";
+                    }
                 } else {
                     alert(data.msg || "Login failed");
                 }
@@ -411,11 +603,24 @@ document.addEventListener('DOMContentLoaded', () => {
     if (progressModal) {
         let currentProgressId = null;
         
+        let initialCheckedCount = 0;
         const updateModalVisuals = () => {
             const checkedCount = document.querySelectorAll('#progress-form input[type="checkbox"]:checked').length;
             const percent = Math.round((checkedCount / 7) * 100);
             document.getElementById('modal-progress-fill').style.width = `${percent}%`;
             document.getElementById('modal-progress-text').textContent = percent;
+            
+            const proofContainer = document.getElementById('proof-container');
+            const proofInput = document.getElementById('progress-proof');
+            if (proofContainer && proofInput) {
+                if (checkedCount > initialCheckedCount) {
+                    proofContainer.style.display = 'block';
+                    proofInput.required = true;
+                } else {
+                    proofContainer.style.display = 'none';
+                    proofInput.required = false;
+                }
+            }
         };
 
         document.body.addEventListener('click', (e) => {
@@ -425,10 +630,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 // Parse existing progress and check boxes
                 const existingProgress = JSON.parse(e.target.dataset.progress || '[]');
+                initialCheckedCount = existingProgress.length;
                 const checkboxes = document.querySelectorAll('#progress-form input[type="checkbox"]');
                 checkboxes.forEach(cb => {
                     cb.checked = existingProgress.includes(cb.value);
                 });
+                const proofInput = document.getElementById('progress-proof');
+                if (proofInput) proofInput.value = '';
                 
                 updateModalVisuals();
                 progressModal.style.display = 'flex';
@@ -451,24 +659,51 @@ document.addEventListener('DOMContentLoaded', () => {
                 const checkedBoxes = Array.from(document.querySelectorAll('#progress-form input[type="checkbox"]:checked')).map(cb => cb.value);
                 
                 try {
-                    const res = await fetch(`${API_URL}/research/${currentProgressId}/progress`, {
-                        method: 'PATCH',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'x-auth-token': getToken()
-                        },
-                        body: JSON.stringify({ progress: checkedBoxes })
-                    });
+                    const proofInput = document.getElementById('progress-proof');
+                    const proofFile = proofInput && proofInput.files.length > 0 ? proofInput.files[0] : null;
+
+                    const payload = { progress: checkedBoxes };
                     
-                    if (res.ok) {
-                        progressModal.style.display = 'none';
-                        loadResearch();
+                    const submitPayload = async (finalPayload) => {
+                        try {
+                            const res = await fetch(`${API_URL}/research/${currentProgressId}/progress`, {
+                                method: 'PATCH',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'x-auth-token': getToken()
+                                },
+                                body: JSON.stringify(finalPayload)
+                            });
+                            
+                            if (res.ok) {
+                                progressModal.style.display = 'none';
+                                loadResearch();
+                            } else {
+                                const data = await res.json();
+                                alert(data.msg || "Failed to update progress");
+                            }
+                        } catch (err) {
+                            console.error("Progress update error:", err);
+                        }
+                    };
+
+                    if (proofFile) {
+                        payload.proofFileName = proofFile.name;
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                            payload.proofData = reader.result;
+                            submitPayload(payload);
+                        };
+                        reader.onerror = () => {
+                            console.error("Failed to read file.");
+                            submitPayload(payload);
+                        };
+                        reader.readAsDataURL(proofFile);
                     } else {
-                        const data = await res.json();
-                        alert(data.msg || "Failed to update progress");
+                        submitPayload(payload);
                     }
                 } catch (err) {
-                    console.error("Progress update error:", err);
+                    console.error("Progress update processing error:", err);
                 }
             });
         }
@@ -514,6 +749,33 @@ document.addEventListener('DOMContentLoaded', () => {
     // 8. Page-specific data loads
     if (document.getElementById("research-table")) loadResearch();
     if (document.getElementById("reports-table")) loadReports();
+    if (document.getElementById("admin-research-table") || document.getElementById("mentor-research-table")) loadAllResearch();
+    
+    // Mentor Approve Button Listener
+    document.body.addEventListener('click', async (e) => {
+        if (e.target.classList.contains('approve-btn')) {
+            const id = e.target.dataset.id;
+            if (confirm("Are you sure you want to approve this research for publication?")) {
+                try {
+                    const res = await fetch(`${API_URL}/research/${id}/approve`, {
+                        method: 'PUT',
+                        headers: {
+                            'x-auth-token': getToken()
+                        }
+                    });
+                    if (res.ok) {
+                        alert("Research has been approved!");
+                        // Since this is on mentor-dashboard, calling loadAllResearch repopulates
+                        loadAllResearch();
+                    } else {
+                        alert("Failed to approve research.");
+                    }
+                } catch (err) {
+                    console.error("Approval error:", err);
+                }
+            }
+        }
+    });
 
     // 9. Export CSV
     const exportCsvBtn = document.getElementById('export-csv-btn');
@@ -569,6 +831,47 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             html2pdf().set(opt).from(elementClone).save();
         });
+    }
+
+    // 11. View Document Modal Logic
+    const documentModal = document.getElementById('document-modal');
+    if (documentModal) {
+        document.body.addEventListener('click', (e) => {
+            if (e.target.classList.contains('view-doc-btn')) {
+                const fileName = e.target.getAttribute('data-file');
+                const base64Doc = e.target.getAttribute('data-doc');
+                
+                document.getElementById('document-title').textContent = fileName;
+                
+                const imgViewer = document.getElementById('document-img-viewer');
+                const pdfViewer = document.getElementById('document-pdf-viewer');
+                
+                // Reset views
+                imgViewer.style.display = 'none';
+                pdfViewer.style.display = 'none';
+                imgViewer.src = '';
+                pdfViewer.src = '';
+
+                // Simple MIME detection from Base64 Data URL
+                if (base64Doc.startsWith('data:image/')) {
+                    imgViewer.src = base64Doc;
+                    imgViewer.style.display = 'block';
+                } else if (base64Doc.startsWith('data:application/pdf')) {
+                    pdfViewer.src = base64Doc;
+                    pdfViewer.style.display = 'block';
+                } else {
+                    // Fallback to pdf viewer element for raw data
+                    pdfViewer.src = base64Doc;
+                    pdfViewer.style.display = 'block';
+                }
+
+                documentModal.style.display = 'flex';
+            }
+        });
+
+        document.getElementById('document-close').onclick = () => {
+            documentModal.style.display = 'none';
+        };
     }
 
 });

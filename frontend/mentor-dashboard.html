@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mentor Dashboard - Research Outcome Tracker</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    <div class="dashboard-layout">
+        <aside class="sidebar glass">
+            <div class="sidebar-logo">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.5"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path
+                        d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
+                </svg>
+                <span>Mentor Hub</span>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="mentor-dashboard.html" class="sidebar-link active">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <rect width="7" height="9" x="3" y="3" rx="1" />
+                        <rect width="7" height="5" x="14" y="3" rx="1" />
+                        <rect width="7" height="9" x="14" y="12" rx="1" />
+                        <rect width="7" height="5" x="3" y="16" rx="1" />
+                    </svg>
+                    <span>Verification</span>
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <a href="index.html" class="sidebar-link">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                        <polyline points="16 17 21 12 16 7" />
+                        <line x1="21" y1="12" x2="9" y2="12" />
+                    </svg>
+                    <span>Logout</span>
+                </a>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header class="page-header animate-fade-in">
+                <div class="page-title">
+                    <p
+                        style="color: var(--primary); font-weight: 700; text-transform: uppercase; letter-spacing: 0.2em; font-size: 0.75rem; margin-bottom: 0.5rem;">
+                        Project Verification</p>
+                    <h2>Mentor Approval System</h2>
+                    <p style="color: var(--text-muted);">Review and approve completed student projects before publication.</p>
+                </div>
+            </header>
+
+            <div class="stat-grid animate-fade-in">
+                <div class="stat-card glass-card">
+                    <h3>Total Projects</h3>
+                    <div class="value" id="admin-total-projects" style="color: var(--primary);">0</div>
+                </div>
+                <div class="stat-card glass-card">
+                    <h3>Ongoing</h3>
+                    <div class="value" id="admin-ongoing-projects" style="color: var(--success);">0</div>
+                </div>
+                <div class="stat-card glass-card">
+                    <h3>Published</h3>
+                    <div class="value" id="admin-published-projects" style="color: var(--warning);">0</div>
+                </div>
+            </div>
+
+            <!-- Progress Chart Section -->
+            <div class="data-card glass-card animate-fade-in" style="animation-delay: 0.1s; margin-bottom: 2.5rem; display: none;" id="progress-chart-container">
+                <div class="card-header">
+                    <h3 style="font-weight: 700;">Pending Projects Progress</h3>
+                    <div class="badge status-pending">Real-time</div>
+                </div>
+                <div style="padding: 1.5rem; height: 300px;">
+                    <canvas id="progressChart"></canvas>
+                </div>
+            </div>
+
+            <div class="data-card glass-card animate-fade-in" style="animation-delay: 0.2s; margin-bottom: 2.5rem;">
+                <div class="card-header">
+                    <h3 style="font-weight: 700;">Global Research Verification</h3>
+                    <div class="badge status-pending">Mentor View</div>
+                </div>
+                <div class="table-container">
+                    <table id="mentor-research-table">
+                        <thead>
+                            <tr>
+                                <th>Researcher</th>
+                                <th>Project Identifier</th>
+                                <th>Abstract</th>
+                                <th>Initialized</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <!-- Delete Confirmation Modal (Used by existing script.js logic) -->
+    <div class="modal-overlay" id="delete-modal">
+        <div class="modal-content glass-card animate-fade-in"
+            style="max-width: 500px; text-align: left; background: var(--background);">
+            <div class="auth-header" style="text-align: left; margin-bottom: 2rem;">
+                <h2 style="font-size: 2rem; margin-bottom: 0.5rem; color: #ff4d4d;">Delete Research</h2>
+                <p style="color: var(--text-muted); font-size: 1rem;">
+                    Are you sure you want to delete <strong id="delete-modal-project-name" style="color: #fff;">this
+                        project</strong>?
+                    This action cannot be undone.
+                </p>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="delete-cancel">Cancel</button>
+                <button class="btn" id="confirm-delete" style="background: #ff4d4d; border-color: #ff4d4d;">Delete
+                    Forever</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- View Document Modal -->
+    <div class="modal-overlay" id="document-modal">
+        <div class="modal-content glass-card animate-fade-in" style="max-width: 800px; width: 90%; text-align: left; background: var(--background);">
+            <div class="auth-header" style="text-align: left; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h2 style="font-size: 1.8rem; margin-bottom: 0.5rem; color: var(--primary);">Document Viewer</h2>
+                    <p style="color: var(--text-muted); font-size: 0.9rem;">
+                        File: <strong id="document-title" style="color: #fff;">document.pdf</strong>
+                    </p>
+                </div>
+                <button class="btn btn-secondary" id="document-close" style="padding: 0.4rem 0.8rem;">Close</button>
+            </div>
+            <div style="width: 100%; height: 60vh; background: rgba(0,0,0,0.3); border-radius: 8px; overflow: hidden; display: flex; justify-content: center; align-items: center; border: 1px solid rgba(255,255,255,0.1);">
+                <img id="document-img-viewer" style="display: none; max-width: 100%; max-height: 100%; object-fit: contain;">
+                <iframe id="document-pdf-viewer" style="display: none; width: 100%; height: 100%; border: none;"></iframe>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/script.js"></script>
+    <script>
+        // Adjust the reload target for mentor context delete
+        document.addEventListener('DOMContentLoaded', () => {
+            const deleteModal = document.getElementById("delete-modal");
+            if (deleteModal) {
+                const oldConfirmBtn = document.getElementById('confirm-delete');
+                if(oldConfirmBtn) {
+                     // The global script.js binds a click event here, but we want it to reload admin research
+                     // Let's monkey-patch window.loadResearch to loadAllResearch just for the delete modal logic in script.js on this page.
+                     window.loadResearch = window.loadAllResearch;
+                }
+            }
+        });
+    </script>
+</body>
+
+</html>
