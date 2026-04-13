@@ -32,9 +32,11 @@ app.get('/', (req, res) => {
     res.send('Research Outcome Tracker API is running...');
 });
 
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+if (require.main === module) {
+    app.listen(PORT, () => {
+        console.log(`Server running on port ${PORT}`);
+    });
+}
 
 // 404 Handler
 app.use((req, res) => {
