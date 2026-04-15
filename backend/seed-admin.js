@@ -1,30 +1,30 @@
-const mongoose = require('mongoose');
 const dotenv = require('dotenv');
-const User = require('./models/User');
-
 dotenv.config();
+
+const sequelize = require('./db');
+const User = require('./models/User');
 
 const seedAdmin = async () => {
     try {
-        await mongoose.connect(process.env.MONGO_URI);
-        console.log('MongoDB Connected...');
+        await sequelize.authenticate();
+        await sequelize.sync();
+        console.log('PostgreSQL Connected...');
 
         // Check if admin already exists
-        const adminExists = await User.findOne({ email: 'admin@rot.com' });
+        const adminExists = await User.findOne({ where: { email: 'admin@rot.com' } });
         if (adminExists) {
             console.log('Admin user already exists (admin@rot.com). You can login with it.');
             process.exit(0);
         }
 
         // Create new Admin user
-        const adminUser = new User({
+        await User.create({
             name: 'System Admin',
             email: 'admin@rot.com',
-            password: 'admin', // Will be hashed by pre-save hook
+            password: 'admin', // Will be hashed by beforeCreate hook
             role: 'Admin'
         });
 
-        await adminUser.save();
         console.log('Admin user seeded successfully!');
         console.log('Email: admin@rot.com');
         console.log('Password: admin');

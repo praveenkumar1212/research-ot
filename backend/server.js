@@ -1,7 +1,9 @@
 const express = require('express');
-const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const sequelize = require('./db');
+const User = require('./models/User');
+const Research = require('./models/Research');
 
 dotenv.config();
 
@@ -23,10 +25,20 @@ app.use((req, res, next) => {
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/research', require('./routes/research'));
 
-// Database Connection
-mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log('MongoDB Connected...'))
-    .catch(err => console.log('MongoDB Connection Error:', err));
+// Model Associations
+Research.belongsTo(User, { foreignKey: 'userId' });
+User.hasMany(Research, { foreignKey: 'userId' });
+
+// Database Connection & Sync
+sequelize.authenticate()
+    .then(() => {
+        console.log('PostgreSQL Connected...');
+        return sequelize.sync();
+    })
+    .then(() => {
+        console.log('Database synced.');
+    })
+    .catch(err => console.log('PostgreSQL Connection Error:', err));
 
 app.get('/', (req, res) => {
     res.send('Research Outcome Tracker API is running...');

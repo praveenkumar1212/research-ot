@@ -1,16 +1,17 @@
-const mongoose = require('mongoose');
 const dotenv = require('dotenv');
-const Research = require('./models/Research');
-
 dotenv.config();
+
+const sequelize = require('./db');
+const Research = require('./models/Research');
 
 async function run() {
     try {
-        await mongoose.connect(process.env.MONGO_URI);
+        await sequelize.authenticate();
+        await sequelize.sync();
         console.log('--- DB INSPECTION START ---');
-        const research = await Research.find({});
+        const research = await Research.findAll();
         research.forEach(r => {
-            console.log(`RES_ID:[${r._id.toString()}] USER_ID:[${r.userId ? r.userId.toString() : 'NULL'}] TITLE:[${r.title}]`);
+            console.log(`RES_ID:[${r.id}] USER_ID:[${r.userId || 'NULL'}] TITLE:[${r.title}]`);
         });
         console.log('--- DB INSPECTION END ---');
         process.exit(0);

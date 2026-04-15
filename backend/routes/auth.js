@@ -11,18 +11,17 @@ router.post('/register', async (req, res) => {
     email = email.toLowerCase().trim();
     console.log(`Registration attempt for: ${email}`);
     try {
-        let user = await User.findOne({ email });
+        let user = await User.findOne({ where: { email } });
         if (user) {
             console.log(`User already exists: ${email}`);
             return res.status(400).json({ msg: 'User already exists' });
         }
 
-        user = new User({ name, email, password, role });
-        await user.save();
+        user = await User.create({ name, email, password, role });
         console.log(`User registered successfully: ${email}`);
 
-        const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
-        res.json({ token, user: { id: user._id, name: user.name, email: user.email, role: user.role } });
+        const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
+        res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
     } catch (err) {
         console.error('Registration Error Details:', err);
         res.status(500).json({ msg: 'Server error', error: err.message });
@@ -36,7 +35,7 @@ router.post('/login', async (req, res) => {
     email = email.toLowerCase().trim();
     console.log(`Login attempt for: ${email}`);
     try {
-        const user = await User.findOne({ email });
+        const user = await User.findOne({ where: { email } });
         if (!user) {
             console.log(`User not found: ${email}`);
             return res.status(400).json({ msg: 'Invalid Credentials' });
@@ -51,8 +50,8 @@ router.post('/login', async (req, res) => {
         }
 
         console.log(`Login successful: ${email}`);
-        const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
-        res.json({ token, user: { id: user._id, name: user.name, email: user.email, role: user.role } });
+        const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
+        res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
     } catch (err) {
         console.error('Login Error Details:', err);
         res.status(500).json({ msg: 'Server error', error: err.message });

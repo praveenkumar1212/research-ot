@@ -1,21 +1,21 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
-const mongoose = require('mongoose');
 const Research = require('../models/Research');
+const User = require('../models/User');
 
 // @route   GET api/research
 // @desc    Get all research (or user specific if query param provided)
 router.get('/', auth, async (req, res) => {
     try {
-        let query = {};
+        let where = {};
         if (req.query.user === 'me') {
-            query.userId = req.user.id;
+            where.userId = req.user.id;
         }
         if (req.query.status) {
-            query.status = req.query.status;
+            where.status = req.query.status;
         }
-        const research = await Research.find(query).sort({ createdAt: -1 });
+        const research = await Research.findAll({ where, order: [['createdAt', 'DESC']] });
         res.json(research);
     } catch (err) {
         res.status(500).json({ msg: 'Server error', error: err.message });
@@ -30,16 +30,29 @@ router.get('/all', auth, async (req, res) => {
             return res.status(403).json({ msg: 'Access denied. Admins and Mentors only.' });
         }
         
-        let query = {};
+        let where = {};
         if (req.query.status) {
-            query.status = req.query.status;
+            where.status = req.query.status;
         }
         
-        const research = await Research.find(query)
-            .populate('userId', 'name email role')
-            .sort({ createdAt: -1 });
+        const research = await Research.findAll({
+            where,
+            include: [{
+                model: User,
+                attributes: ['name', 'email', 'role']
+            }],
+            order: [['createdAt', 'DESC']]
+        });
+        
+        // Transform to match the old Mongoose .populate() format
+        const transformed = research.map(r => {
+            const plain = r.toJSON();
+            plain.userId = plain.User || plain.userId;
+            delete plain.User;
+            return plain;
+        });
             
-        res.json(research);
+        res.json(transformed);
     } catch (err) {
         res.status(500).json({ msg: 'Server error', error: err.message });
     }
@@ -50,10 +63,9 @@ router.get('/all', auth, async (req, res) => {
 router.post('/', auth, async (req, res) => {
     const { title, description, startDate, status } = req.body;
     try {
-        const newResearch = new Research({
+        const research = await Research.create({
             title, description, startDate, status, userId: req.user.id
         });
-        const research = await newResearch.save();
         res.json(research);
     } catch (err) {
         res.status(500).json({ msg: 'Server error', error: err.message });
@@ -64,9 +76,9 @@ router.post('/', auth, async (req, res) => {
 // @desc    Publish research
 router.put('/:id/publish', auth, async (req, res) => {
     try {
-        let research = await Research.findById(req.params.id);
+        let research = await Research.findByPk(req.params.id);
         if (!research) return res.status(404).json({ msg: 'Research not found' });
-        if (research.userId.toString() !== req.user.id) {
+        if (research.userId !== req.user.id) {
             return res.status(401).json({ msg: 'User not authorized' });
         }
         if (!research.mentorApproved) {
@@ -74,7 +86,7 @@ router.put('/:id/publish', auth, async (req, res) => {
         }
 
         research.status = 'Published';
-        research.publishedDate = Date.now();
+        research.publishedDate = new Date();
         await research.save();
         res.json(research);
     } catch (err) {
@@ -90,7 +102,7 @@ router.put('/:id/approve', auth, async (req, res) => {
             return res.status(403).json({ msg: 'Access denied. Mentors only.' });
         }
 
-        let research = await Research.findById(req.params.id);
+        let research = await Research.findByPk(req.params.id);
         if (!research) return res.status(404).json({ msg: 'Research not found' });
 
         research.mentorApproved = true;
@@ -106,9 +118,9 @@ router.put('/:id/approve', auth, async (req, res) => {
 router.patch('/:id/progress', auth, async (req, res) => {
     try {
         const { progress, proofFileName, proofData } = req.body;
-        let research = await Research.findById(req.params.id);
+        let research = await Research.findByPk(req.params.id);
         if (!research) return res.status(404).json({ msg: 'Research not found' });
-        if (research.userId.toString() !== req.user.id) {
+        if (research.userId !== req.user.id) {
             return res.status(401).json({ msg: 'User not authorized' });
         }
 
@@ -132,19 +144,14 @@ router.patch('/:id/progress', auth, async (req, res) => {
 router.delete('/:id', auth, async (req, res) => {
     console.log(`DELETE request for ID: ${req.params.id} from user: ${req.user.id}`);
     try {
-        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-            console.log('Invalid research ID format:', req.params.id);
-            return res.status(400).json({ msg: 'Invalid ID format' });
-        }
-
-        const research = await Research.findById(req.params.id);
+        const research = await Research.findByPk(req.params.id);
         console.log('Found research:', research ? 'YES' : 'NO');
 
         if (!research) return res.status(404).json({ msg: 'Research not found' });
 
         console.log(`Research UserID: ${research.userId}, Request UserID: ${req.user.id}, Role: ${req.user.role}`);
         
-        const isOwner = research.userId.toString() === req.user.id;
+        const isOwner = research.userId === req.user.id;
         const isAdminOrMentor = req.user.role === 'Admin' || req.user.role === 'Mentor';
 
         if (!isOwner && !isAdminOrMentor) {
@@ -152,7 +159,7 @@ router.delete('/:id', auth, async (req, res) => {
             return res.status(401).json({ msg: 'User not authorized' });
         }
 
-        await research.deleteOne();
+        await research.destroy();
         console.log('Research deleted successfully');
         res.json({ msg: 'Research removed' });
     } catch (err) {

@@ -1,21 +1,56 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const sequelize = require('../db');
 
-const ResearchSchema = new mongoose.Schema({
-    title: { type: String, required: true },
-    description: { type: String, required: true },
-    startDate: { type: Date, default: Date.now },
-    status: {
-        type: String,
-        enum: ['Pending', 'Ongoing', 'Completed', 'Published'],
-        default: 'Pending'
+const Research = sequelize.define('Research', {
+    id: {
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true
     },
-    progress: { type: [String], default: [] },
-    proofFileName: { type: String, default: null },
-    proofData: { type: String, default: null },
-    mentorApproved: { type: Boolean, default: false },
-    publishedDate: { type: Date },
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    createdAt: { type: Date, default: Date.now }
+    title: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    description: {
+        type: DataTypes.TEXT,
+        allowNull: false
+    },
+    startDate: {
+        type: DataTypes.DATE,
+        defaultValue: DataTypes.NOW
+    },
+    status: {
+        type: DataTypes.ENUM('Pending', 'Ongoing', 'Completed', 'Published'),
+        defaultValue: 'Pending'
+    },
+    progress: {
+        type: DataTypes.JSON,
+        defaultValue: []
+    },
+    proofFileName: {
+        type: DataTypes.STRING,
+        defaultValue: null
+    },
+    proofData: {
+        type: DataTypes.TEXT,
+        defaultValue: null
+    },
+    mentorApproved: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false
+    },
+    publishedDate: {
+        type: DataTypes.DATE,
+        allowNull: true
+    },
+    userId: {
+        type: DataTypes.UUID,
+        allowNull: false
+    }
+}, {
+    tableName: 'research',
+    timestamps: true,
+    updatedAt: false
 });
 
-module.exports = mongoose.model('Research', ResearchSchema);
+module.exports = Research;

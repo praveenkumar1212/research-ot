@@ -1,16 +1,17 @@
-const mongoose = require('mongoose');
 const dotenv = require('dotenv');
-const Research = require('./models/Research');
-
 dotenv.config();
 
-mongoose.connect(process.env.MONGO_URI)
+const sequelize = require('./db');
+const Research = require('./models/Research');
+
+sequelize.authenticate()
+    .then(() => sequelize.sync())
     .then(async () => {
-        console.log('Connected to MongoDB');
-        const research = await Research.find({});
+        console.log('Connected to PostgreSQL');
+        const research = await Research.findAll();
         console.log(`Found ${research.length} research projects:`);
         research.forEach(r => {
-            console.log(`ID: ${r._id}, Title: ${r.title}, UserID: ${r.userId}`);
+            console.log(`ID: ${r.id}, Title: ${r.title}, UserID: ${r.userId}`);
         });
         process.exit();
     })
